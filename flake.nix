@@ -1,5 +1,5 @@
 {
-  description = "show flows with ecs";
+  description = "generate sentences in context-sensitive languages";
   inputs.haskellNix.url = "github:input-output-hk/haskell.nix";
   inputs.nixpkgs.follows = "haskellNix/nixpkgs-unstable";
   inputs.flake-utils.url = "github:numtide/flake-utils";
@@ -27,6 +27,6 @@
       flake = pkgs.hagg.flake {};
     in flake // {
       # Built by `nix build .`
-      defaultPackage = flake.packages."hagg:exe:hagg";
+      defaultPackage = flake.packages.hagg;
     });
 }
