@@ -1,0 +1,21 @@
+name: hagg
+
+dependencies:
+  - base >=4.14 && <4.15
+
+ghc-options:
+  - -Wall
+  - -Werror
+
+library:
+  source-dirs: src
+
+tests:
+  spec:
+    main: Spec.hs
+    source-dirs: test
+
+
+default-extensions:
+  - ImportQualifiedPost
+  - OverloadedStrings
