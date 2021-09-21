@@ -17,5 +17,8 @@ tests:
 
 
 default-extensions:
+  - ConstraintKinds
   - ImportQualifiedPost
   - OverloadedStrings
+  - DerivingStrategies
+  - GeneralizedNewtypeDeriving

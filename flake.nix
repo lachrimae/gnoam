@@ -17,6 +17,8 @@
               # `cabal`, `hlint` and `haskell-language-server`
               shell.tools = {
                 cabal = {};
+                ghcid = {};
+                ormolu = {};
                 hlint = {};
                 hpack = {};
               };
