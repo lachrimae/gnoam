@@ -5,33 +5,44 @@
 
 module Lib where
 
+import Data.Foldable
+import Data.Maybe
+
 -- strictness forces this list to be finite
 data FinList a
   = a :| !(FinList a)
   | Empty
   deriving stock (Show, Eq, Ord, Foldable)
 
+data NonNullFinList a
+  = a :|| !(FinList a)
+  deriving stock (Show, Eq, Ord, Foldable)
+
+infixr 7 :|
+infixr 7 :||
+
 instance Functor FinList where
   fmap _ Empty = Empty
   fmap f (a :| as) = f a :| fmap f as
 
 data Zipper a = Zipper
-  { previous :: FinList a,
-    next :: FinList a
+  { previous :: !(FinList a),
+    next :: !(NonNullFinList a)
   }
+  deriving (Show, Eq)
 
-mkZipper :: FinList a -> Zipper a
+mkZipper :: NonNullFinList a -> Zipper a
 mkZipper l = Zipper Empty l
 
 left :: Zipper a -> Maybe (Zipper a)
 left (Zipper Empty _) = Nothing
-left (Zipper (a :| as) bs) = Just $ Zipper as (a :| bs)
+left (Zipper (a :| as) (b :|| bs)) = Just $ Zipper as (a :|| b :| bs)
 
 right :: Zipper a -> Maybe (Zipper a)
-right (Zipper _ Empty) = Nothing
-right (Zipper as (b :| bs)) = Just $ Zipper (b :| as) bs
+right (Zipper _ (_ :|| Empty)) = Nothing
+right (Zipper as (b :|| b' :| bs)) = Just $ Zipper (b :| as) (b' :|| bs)
 
-fromZipper :: Zipper a -> FinList a
+fromZipper :: Zipper a -> NonNullFinList a
 fromZipper zipper =
   case left zipper of
     Nothing -> next zipper
@@ -40,58 +51,30 @@ fromZipper zipper =
 -- we need terminal symbols of our language to be Concrete
 type Concrete a = (Eq a, Ord a, Bounded a, Enum a)
 
--- Nonterminal symbols will be Abstract
-{- ORMOLU_DISABLE -}
-data Eq a => Abstract a
-  = Start
-  | Term a
-  deriving stock (Show, Eq, Ord)
-{- ORMOLU_ENABLE -}
+data (Ord nonterminal, Concrete terminal) => Rule nonterminal terminal
+  = !nonterminal := !(nonterminal, nonterminal)
+  | !nonterminal :- !terminal
+  deriving (Show, Eq, Ord)
 
--- Nothing represents the empty string, and is always a valid terminating symbol
-{- ORMOLU_DISABLE -}
-data (Concrete a, Ord b) => Alphabet a b
-  = Terminal a
-  | NonTerminal (Abstract b)
-  deriving stock (Eq, Ord)
-{- ORMOLU_ENABLE -}
+data Grammar terminal nonterminal
+  = Grammar
+      { rules :: !(NonNullFinList (Rule nonterminal terminal))
+      , start :: !nonterminal
+      , emptyString :: !terminal
+      }
+  deriving (Show, Eq)
 
-{- ORMOLU_DISABLE -}
-data (Concrete a, Ord b) => Expression a b
-  = Expression (FinList (Alphabet a b)) (Alphabet a b) (FinList (Alphabet a b))
-  deriving stock (Eq, Ord)
-{- ORMOLU_ENABLE -}
-
--- A relation may be expressed as a set of tuples (a, b)
--- Rule is essentially a tuple, and Relation is roughly a set of tuples.
-data Rule a b = a :-> b
-
-preimage :: Rule a b -> a
-preimage (a :-> _) = a
-
-image :: Rule a b -> b
-image (_ :-> b) = b
-
-newtype Relation a b = Relation (FinList (Rule a b))
-
--- these might want to be newtypes
-type Production a b = (Concrete a, Ord b) => Rule (Expression a b) (Expression a b)
-
-type Grammar a b = (Concrete a, Ord b) => Relation (Expression a b) (Expression a b)
-
--- Start -> s
-unitGrammar :: (Eq a, Ord b) => Grammar a b
-unitGrammar =
-  let relationElt = Expression Empty (NonTerminal Start) Empty :-> Expression Empty (Terminal minBound) Empty
-   in Relation $ relationElt :| Empty
-
-generate :: (Concrete a, Ord b) => FinList (Alphabet a b) -> Grammar a b -> Either (FinList (FinList ((Alphabet a b)))) (FinList (FinList a))
-generate input grammar =
-  -- should be requiredStartahead instead of requiredLookbehind because we iterate from the start of lists
-  let requiredLookbehind = maxLength (\(Expression behind _ _) -> behind) grammar
-      requiredLookahead = maxLength (\(Expression _ _ ahead) -> ahead) grammar
+generate :: (Concrete terminal, Ord nonterminal) => NonNullFinList (Either terminal nonterminal) -> Grammar terminal nonterminal -> NonNullFinList (NonNullFinList terminal)
+generate input rawGrammar =
+  let grammar =
+        if isJust $ find (== (start rawGrammar :- emptyString rawGrammar)) (rules rawGrammar)
+          then grammar
+          else
+            let firstRule :|| otherRules = rules rawGrammar
+             in grammar
+                  { rules = (start rawGrammar :- emptyString rawGrammar) :|| (firstRule :| otherRules)
+                  }
+      input' = mkZipper input
+      rules' = mkZipper . rules $ grammar
+      innerIter zipState rulesState = undefined
    in undefined
-  where
-    maxLength :: (Concrete a, Ord b) => (Expression a b -> FinList (Alphabet a b)) -> Grammar a b -> Int
-    maxLength lookDirection (Relation rules) =
-      maximum $ fmap (length . lookDirection . preimage) rules

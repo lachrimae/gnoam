@@ -5,15 +5,17 @@ dependencies:
 
 ghc-options:
   - -Wall
-  - -Werror
 
 library:
   source-dirs: src
 
 tests:
   spec:
-    main: Spec.hs
+    main: Main.hs
     source-dirs: test
+    dependencies:
+      - hagg
+      - hspec
 
 
 default-extensions:
