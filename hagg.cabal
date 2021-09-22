@@ -21,6 +21,9 @@ library
       OverloadedStrings
       DerivingStrategies
       GeneralizedNewtypeDeriving
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
   ghc-options: -Wall
   build-depends:
       base ==4.14.*
@@ -39,6 +42,9 @@ test-suite spec
       OverloadedStrings
       DerivingStrategies
       GeneralizedNewtypeDeriving
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
   ghc-options: -Wall
   build-depends:
       base ==4.14.*

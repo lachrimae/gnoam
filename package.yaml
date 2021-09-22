@@ -24,3 +24,6 @@ default-extensions:
   - OverloadedStrings
   - DerivingStrategies
   - GeneralizedNewtypeDeriving
+  - DeriveFoldable
+  - DeriveFunctor
+  - DeriveTraversable
