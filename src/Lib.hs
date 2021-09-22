@@ -119,8 +119,8 @@ generate rawGrammar iterations =
                     `prepend` grammarRules grammar
               }
    in generate'
-        (grammarRules grammar)
-        (pure $ pure (Left (grammarStart grammar)))
+        (grammarRules rawGrammar)
+        (pure $ pure (Left (grammarStart rawGrammar)))
         iterations
 
 generate'
