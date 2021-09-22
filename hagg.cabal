@@ -29,6 +29,27 @@ library
       base ==4.14.*
   default-language: Haskell2010
 
+executable hagg
+  main-is: Main.hs
+  other-modules:
+      Paths_hagg
+  hs-source-dirs:
+      app
+  default-extensions:
+      ConstraintKinds
+      ImportQualifiedPost
+      OverloadedStrings
+      DerivingStrategies
+      GeneralizedNewtypeDeriving
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
+  ghc-options: -Wall
+  build-depends:
+      base ==4.14.*
+    , hagg
+  default-language: Haskell2010
+
 test-suite spec
   type: exitcode-stdio-1.0
   main-is: Main.hs

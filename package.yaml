@@ -9,6 +9,12 @@ ghc-options:
 library:
   source-dirs: src
 
+executable:
+  source-dirs: app
+  main: Main.hs
+  dependencies:
+    - hagg
+
 tests:
   spec:
     main: Main.hs
@@ -16,7 +22,6 @@ tests:
     dependencies:
       - hagg
       - hspec
-
 
 default-extensions:
   - ConstraintKinds

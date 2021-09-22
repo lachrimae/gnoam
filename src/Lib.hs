@@ -9,6 +9,7 @@ import Data.Either
 import Data.Foldable
 import Data.Functor
 import Data.Maybe
+import Debug.Trace
 
 -- strictness forces this list to be finite
 data FinList a
@@ -74,18 +75,19 @@ fromZipper zipper =
     Just z -> fromZipper z
 
 -- we need terminal symbols of our language to be Concrete
-type Concrete a = (Eq a, Ord a, Bounded a, Enum a)
+type Concrete a = (Eq a, Ord a, Bounded a, Enum a, Show a)
+type Abstract a = (Eq a, Ord a, Show a)
 
-data (Ord nonterminal, Concrete terminal) => Rule nonterminal terminal
+data (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal
   = !nonterminal := !(nonterminal, nonterminal)
   | !nonterminal :- !terminal
   deriving (Show, Eq, Ord)
 
-domain :: (Ord nonterminal, Concrete terminal) => Rule nonterminal terminal -> nonterminal
+domain :: (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal -> nonterminal
 domain (a := _) = a
 domain (a :- _) = a
 
-codomain :: (Ord nonterminal, Concrete terminal) => Rule nonterminal terminal -> Either (nonterminal, nonterminal) terminal
+codomain :: (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal -> Either (nonterminal, nonterminal) terminal
 codomain (_ := (a, b)) = Left (a, b)
 codomain (_ :- a) = Right a
 
@@ -98,7 +100,7 @@ data Grammar nonterminal terminal
   deriving (Show, Eq)
 
 generate
-  :: (Concrete terminal, Ord nonterminal)
+  :: (Concrete terminal, Abstract nonterminal)
   => Grammar nonterminal terminal
   -> Int
   -> FinList (NonNullFinList terminal)
@@ -109,9 +111,9 @@ generate rawGrammar iterations =
         if isJust $
              find (== (grammarStart rawGrammar :- grammarEmptyString rawGrammar))
              (grammarRules rawGrammar)
-          then grammar
+          then rawGrammar
           else
-            grammar
+            rawGrammar
               { grammarRules =
                   (grammarStart rawGrammar :- grammarEmptyString rawGrammar)
                     `prepend` grammarRules grammar
@@ -122,7 +124,7 @@ generate rawGrammar iterations =
         iterations
 
 generate'
-  :: (Concrete terminal, Ord nonterminal)
+  :: (Concrete terminal, Abstract nonterminal)
   => NonNullFinList (Rule nonterminal terminal)
   -> FinList (NonNullFinList (Either nonterminal terminal))
   -> Int
@@ -136,33 +138,35 @@ generate' rules generations iterations =
   let mappedGenerations = generations <&> \generation ->
         iterInput right (mkZipper generation) rules Empty
       concatGenerations = foldl' (<>) Empty mappedGenerations
+      debug = show rules <> " " <> show generations <> " " <> show iterations
    in generate' rules concatGenerations (iterations - 1)
 
 iterInput
-  :: (Concrete terminal, Ord nonterminal)
+  :: (Concrete terminal, Abstract nonterminal)
   => (Zipper (Either nonterminal terminal) -> Maybe (Zipper (Either nonterminal terminal)))
   -> Zipper (Either nonterminal terminal)
   -> NonNullFinList (Rule nonterminal terminal)
   -> FinList (NonNullFinList (Either nonterminal terminal))
   -> FinList (NonNullFinList (Either nonterminal terminal))
-iterInput motion zipInput rules subsequentGeneration =
+iterInput motion zipInput rules generation =
   let substitutions = iterRules right zipInput (mkZipper rules) Empty
       Zipper prev (_current :|| next) = zipInput
       additionsToGeneration =
         substitutions <&>
           \substitution -> fromZipper $ Zipper prev $ substitution `grow` next
+      nextGeneration = generation <> additionsToGeneration
    in case motion zipInput of
         Nothing ->
-          subsequentGeneration
+          nextGeneration
         Just subsequentZipInput ->
           iterInput
             motion
             subsequentZipInput
             rules
-            (subsequentGeneration <> additionsToGeneration)
+            nextGeneration
 
 iterRules
-  :: (Concrete terminal, Ord nonterminal)
+  :: (Concrete terminal, Abstract nonterminal)
   => (Zipper (Rule nonterminal terminal) -> Maybe (Zipper (Rule nonterminal terminal)))
   -> Zipper (Either nonterminal terminal)
   -> Zipper (Rule nonterminal terminal)
@@ -179,7 +183,7 @@ iterRules motion zipInput zipRules substitutions =
           iterRules motion zipInput subsequentZipRules subsequentSubstitutions
 
 prependRuleMatches
-  :: (Ord nonterminal, Concrete terminal)
+  :: (Abstract nonterminal, Concrete terminal)
   => Rule nonterminal terminal
   -> Either nonterminal terminal
   -> FinList (NonNullFinList ((Either nonterminal terminal)))
