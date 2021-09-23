@@ -9,7 +9,7 @@
       overlays = [ haskellNix.overlay
         (final: prev: {
           # This overlay adds our project to pkgs
-          hagg =
+          gnoam =
             final.haskell-nix.project' {
               src = ./.;
               compiler-nix-name = "ghc8105";
@@ -26,9 +26,9 @@
         })
       ];
       pkgs = import nixpkgs { inherit system overlays; };
-      flake = pkgs.hagg.flake {};
+      flake = pkgs.gnoam.flake {};
     in flake // {
       # Built by `nix build .`
-      defaultPackage = flake.packages.hagg;
+      defaultPackage = flake.packages.gnoam;
     });
 }

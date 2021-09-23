@@ -1,0 +1,74 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.34.4.
+--
+-- see: https://github.com/sol/hpack
+
+name:           gnoam
+version:        0.0.0
+build-type:     Simple
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_gnoam
+  hs-source-dirs:
+      src
+  default-extensions:
+      ConstraintKinds
+      ImportQualifiedPost
+      OverloadedStrings
+      DerivingStrategies
+      GeneralizedNewtypeDeriving
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
+  ghc-options: -Wall
+  build-depends:
+      base ==4.14.*
+  default-language: Haskell2010
+
+executable gnoam
+  main-is: Main.hs
+  other-modules:
+      Paths_gnoam
+  hs-source-dirs:
+      app
+  default-extensions:
+      ConstraintKinds
+      ImportQualifiedPost
+      OverloadedStrings
+      DerivingStrategies
+      GeneralizedNewtypeDeriving
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
+  ghc-options: -Wall
+  build-depends:
+      base ==4.14.*
+    , gnoam
+  default-language: Haskell2010
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_gnoam
+  hs-source-dirs:
+      test
+  default-extensions:
+      ConstraintKinds
+      ImportQualifiedPost
+      OverloadedStrings
+      DerivingStrategies
+      GeneralizedNewtypeDeriving
+      DeriveFoldable
+      DeriveFunctor
+      DeriveTraversable
+  ghc-options: -Wall
+  build-depends:
+      base ==4.14.*
+    , gnoam
+    , hspec
+  default-language: Haskell2010
