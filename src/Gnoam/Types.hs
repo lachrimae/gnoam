@@ -1,8 +1,3 @@
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE UndecidableInstances #-}
-
 module Gnoam.Types where
 
 -- strictness forces this list to be finite

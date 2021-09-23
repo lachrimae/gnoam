@@ -1,8 +1,3 @@
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE UndecidableInstances #-}
-
 module Gnoam.Internal where
 
 import Data.Either
