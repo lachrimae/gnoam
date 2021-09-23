@@ -73,6 +73,9 @@ iterInput zipInput rules generation = do
 iterRules ::
   (Concrete terminal, Abstract nonterminal, Monad production) =>
   Zipper (Either nonterminal terminal) ->
+  -- TODO
+  -- we don't actually use the Zipper features of this var,
+  -- it can be made a regular list
   Zipper (Rule production nonterminal terminal) ->
   FinList (NonNullFinList (Either nonterminal terminal)) ->
   production (FinList (NonNullFinList (Either nonterminal terminal)))
