@@ -1,8 +1,8 @@
 module Main where
 
 import Data.Int
-import Test.Hspec
 import Lib
+import Test.Hspec
 
 -- we need to define this in order to use
 -- integers as a dummy Abstract type
@@ -15,8 +15,8 @@ main = hspec $ do
     it "fails to go left on a fresh zipper" $
       left (mkZipper ((1 :: Int) :|| 2 :| 3 :| Empty)) `shouldBe` Nothing
     it "goes right on a fresh zipper" $
-      right (mkZipper ((1 :: Int) :|| 2 :| 3 :| Empty)) `shouldBe`
-        Just (Zipper ((1 :: Int) :| Empty) (2 :|| 3 :| Empty))
+      right (mkZipper ((1 :: Int) :|| 2 :| 3 :| Empty))
+        `shouldBe` Just (Zipper ((1 :: Int) :| Empty) (2 :|| 3 :| Empty))
     it "converts back and forth" $
       (mkZipper . fromZipper . mkZipper $ ((1 :: Int) :|| 2 :| 3 :| Empty))
         `shouldBe` Zipper Empty ((1 :: Int) :|| 2 :| 3 :| Empty)
@@ -60,9 +60,9 @@ main = hspec $ do
           expected = (3 :|| 4 :| Empty) :| (3 :|| 4 :| Empty) :| Empty
           grammar =
             Grammar
-              { grammarRules = rules
-              , grammarStart = 0
-              , grammarEmptyString = 0
+              { grammarRules = rules,
+                grammarStart = 0,
+                grammarEmptyString = 0
               }
       generate' rules (pure $ pure $ Left (0 :: Int16)) 3 `shouldBe` expected
       generate grammar 3 `shouldBe` expected

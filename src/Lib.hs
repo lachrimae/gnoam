@@ -47,6 +47,7 @@ grow :: NonNullFinList a -> FinList a -> NonNullFinList a
 grow (x :|| xs) ys = x :|| (xs <> ys)
 
 infixr 7 :|
+
 infixr 7 :||
 
 data Zipper a = Zipper
@@ -79,8 +80,10 @@ class Equiv a where
 
 -- we need terminal symbols of our language to be Concrete
 type Concrete a = (Eq a, Ord a, Bounded a, Enum a, Show a)
+
 type Abstract a = (Eq a, Equiv a, Ord a, Show a)
 
+{- ORMOLU_DISABLE -}
 data (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal
   = -- production of a pair of nonterminals
     !nonterminal :=. !(nonterminal, nonterminal)
@@ -93,6 +96,7 @@ data (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal
   | -- production schema of a terminal
     -- ditto
     !nonterminal :-> !(nonterminal -> terminal)
+{- ORMOLU_ENABLE -}
 
 instance (Abstract nonterminal, Concrete terminal) => Show (Rule nonterminal terminal) where
   show (a :=. b) = show a <> " :=. " <> show b
@@ -112,19 +116,18 @@ codomain (_ :-. a) = Right $ const a
 codomain (_ :=> f) = Left f
 codomain (_ :-> f) = Right f
 
-data Grammar nonterminal terminal
-  = Grammar
-      { grammarRules :: !(NonNullFinList (Rule nonterminal terminal))
-      , grammarStart :: !nonterminal
-      , grammarEmptyString :: !terminal
-      }
+data Grammar nonterminal terminal = Grammar
+  { grammarRules :: !(NonNullFinList (Rule nonterminal terminal)),
+    grammarStart :: !nonterminal,
+    grammarEmptyString :: !terminal
+  }
   deriving (Show)
 
-generate
-  :: (Concrete terminal, Abstract nonterminal)
-  => Grammar nonterminal terminal
-  -> Int
-  -> FinList (NonNullFinList terminal)
+generate ::
+  (Concrete terminal, Abstract nonterminal) =>
+  Grammar nonterminal terminal ->
+  Int ->
+  FinList (NonNullFinList terminal)
 generate rawGrammar iterations =
   -- we add the empty string to the language output if it is not already a rule
   -- as per the definition of a context-free language
@@ -134,44 +137,45 @@ generate rawGrammar iterations =
   let grammar =
         rawGrammar
           { grammarRules =
-            (grammarStart rawGrammar :-. grammarEmptyString rawGrammar)
-              `prepend` grammarRules rawGrammar
+              (grammarStart rawGrammar :-. grammarEmptyString rawGrammar)
+                `prepend` grammarRules rawGrammar
           }
    in generate'
         (grammarRules grammar)
         (pure $ pure (Left (grammarStart grammar)))
         iterations
 
-generate'
-  :: (Concrete terminal, Abstract nonterminal)
-  => NonNullFinList (Rule nonterminal terminal)
-  -> FinList (NonNullFinList (Either nonterminal terminal))
-  -> Int
-  -> FinList (NonNullFinList terminal)
+generate' ::
+  (Concrete terminal, Abstract nonterminal) =>
+  NonNullFinList (Rule nonterminal terminal) ->
+  FinList (NonNullFinList (Either nonterminal terminal)) ->
+  Int ->
+  FinList (NonNullFinList terminal)
 generate' _ Empty 0 = Empty
 generate' rules (generation :| generations) 0 =
   if all isRight generation
     then fmap (\(Right x) -> x) generation :| (generate' rules generations 0)
     else generate' rules generations 0
 generate' rules generations iterations =
-  let mappedGenerations = generations <&> \generation ->
-        iterInput right (mkZipper generation) rules Empty
+  let mappedGenerations =
+        generations <&> \generation ->
+          iterInput right (mkZipper generation) rules Empty
       concatGenerations = foldl' (<>) Empty mappedGenerations
    in generate' rules concatGenerations (iterations - 1)
 
-iterInput
-  :: (Concrete terminal, Abstract nonterminal)
-  => (Zipper (Either nonterminal terminal) -> Maybe (Zipper (Either nonterminal terminal)))
-  -> Zipper (Either nonterminal terminal)
-  -> NonNullFinList (Rule nonterminal terminal)
-  -> FinList (NonNullFinList (Either nonterminal terminal))
-  -> FinList (NonNullFinList (Either nonterminal terminal))
+iterInput ::
+  (Concrete terminal, Abstract nonterminal) =>
+  (Zipper (Either nonterminal terminal) -> Maybe (Zipper (Either nonterminal terminal))) ->
+  Zipper (Either nonterminal terminal) ->
+  NonNullFinList (Rule nonterminal terminal) ->
+  FinList (NonNullFinList (Either nonterminal terminal)) ->
+  FinList (NonNullFinList (Either nonterminal terminal))
 iterInput motion zipInput rules generation =
   let substitutions = iterRules right zipInput (mkZipper rules) Empty
       Zipper prev (_current :|| next) = zipInput
       additionsToGeneration =
-        substitutions <&>
-          \substitution -> fromZipper $ Zipper prev $ substitution `grow` next
+        substitutions
+          <&> \substitution -> fromZipper $ Zipper prev $ substitution `grow` next
       nextGeneration = generation <> additionsToGeneration
    in case motion zipInput of
         Nothing ->
@@ -183,13 +187,13 @@ iterInput motion zipInput rules generation =
             rules
             nextGeneration
 
-iterRules
-  :: (Concrete terminal, Abstract nonterminal)
-  => (Zipper (Rule nonterminal terminal) -> Maybe (Zipper (Rule nonterminal terminal)))
-  -> Zipper (Either nonterminal terminal)
-  -> Zipper (Rule nonterminal terminal)
-  -> FinList (NonNullFinList (Either nonterminal terminal))
-  -> FinList (NonNullFinList (Either nonterminal terminal))
+iterRules ::
+  (Concrete terminal, Abstract nonterminal) =>
+  (Zipper (Rule nonterminal terminal) -> Maybe (Zipper (Rule nonterminal terminal))) ->
+  Zipper (Either nonterminal terminal) ->
+  Zipper (Rule nonterminal terminal) ->
+  FinList (NonNullFinList (Either nonterminal terminal)) ->
+  FinList (NonNullFinList (Either nonterminal terminal))
 iterRules motion zipInput zipRules substitutions =
   let Zipper _ (rule :|| _) = zipRules
       Zipper _ (symbol :|| _) = zipInput
@@ -200,22 +204,22 @@ iterRules motion zipInput zipRules substitutions =
         Just subsequentZipRules ->
           iterRules motion zipInput subsequentZipRules subsequentSubstitutions
 
-prependRuleMatches
-  :: (Abstract nonterminal, Concrete terminal)
-  => Rule nonterminal terminal
-  -> Either nonterminal terminal
-  -> FinList (NonNullFinList ((Either nonterminal terminal)))
-  -> FinList (NonNullFinList (Either nonterminal terminal))
-prependRuleMatches rule symbol matches
-  = case symbol of
-      Left nonterminal ->
-        if domain rule == nonterminal
-          then case codomain rule of
-            Left f ->
-              let (nonterminal1, nonterminal2) = f nonterminal
-               in ((Left nonterminal1 :|| Left nonterminal2 :| Empty)) :| matches
-            Right f ->
-              let terminal = f nonterminal
-               in pure (Right terminal) :| matches
-          else matches
-      Right _ -> matches
+prependRuleMatches ::
+  (Abstract nonterminal, Concrete terminal) =>
+  Rule nonterminal terminal ->
+  Either nonterminal terminal ->
+  FinList (NonNullFinList ((Either nonterminal terminal))) ->
+  FinList (NonNullFinList (Either nonterminal terminal))
+prependRuleMatches rule symbol matches =
+  case symbol of
+    Left nonterminal ->
+      if domain rule == nonterminal
+        then case codomain rule of
+          Left f ->
+            let (nonterminal1, nonterminal2) = f nonterminal
+             in ((Left nonterminal1 :|| Left nonterminal2 :| Empty)) :| matches
+          Right f ->
+            let terminal = f nonterminal
+             in pure (Right terminal) :| matches
+        else matches
+    Right _ -> matches
