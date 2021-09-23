@@ -62,13 +62,13 @@ iterInput zipInput rules generation = do
           <&> \substitution -> fromZipper $ Zipper prev $ substitution `grow` next
   let nextGeneration = generation <> additionsToGeneration
   case right zipInput of
-       Nothing ->
-         pure nextGeneration
-       Just subsequentZipInput ->
-         iterInput
-           subsequentZipInput
-           rules
-           nextGeneration
+    Nothing ->
+      pure nextGeneration
+    Just subsequentZipInput ->
+      iterInput
+        subsequentZipInput
+        rules
+        nextGeneration
 
 iterRules ::
   (Concrete terminal, Abstract nonterminal, Monad production) =>
