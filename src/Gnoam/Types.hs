@@ -74,40 +74,41 @@ type Concrete a = (Eq a, Ord a, Bounded a, Enum a, Show a)
 type Abstract a = (Eq a, Ord a, Show a)
 
 {- ORMOLU_DISABLE -}
-data (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal
-  = -- production of a pair of nonterminals
-    !nonterminal :=. !(nonterminal, nonterminal)
-  | -- production of a terminal
-    !nonterminal :-. !terminal
-  | -- production schema of a pair of nonterminals
-    -- this production rule specifies an arbitrary
-    -- number of rules sharing its form
-    !(nonterminal -> Bool) :=> !(nonterminal -> (nonterminal, nonterminal))
-  | -- production schema of a terminal
-    -- ditto
-    !(nonterminal -> Bool) :-> !(nonterminal -> terminal)
+data (Abstract nonterminal, Concrete terminal, Monad production) => Rule production nonterminal terminal
+  = !nonterminal :=. !(nonterminal, nonterminal)
+  | !nonterminal :-. !(terminal)
+  | !nonterminal :=* !(production (nonterminal, nonterminal))
+  | !nonterminal :-* !(production terminal)
+  | !(nonterminal -> Bool) :=> !(nonterminal -> production (nonterminal, nonterminal))
+  | !(nonterminal -> Bool) :-> !(nonterminal -> production terminal)
 {- ORMOLU_ENABLE -}
 
-instance (Abstract nonterminal, Concrete terminal) => Show (Rule nonterminal terminal) where
+instance (Abstract nonterminal, Concrete terminal, Monad m) => Show (Rule m nonterminal terminal) where
   show (a :=. b) = show a <> " :=. " <> show b
   show (a :-. b) = show a <> " :-. " <> show b
-  show (_ :=> _) = "[predicate on nonterminals `A`] :=> [schema of substitution by nonterminals `BC`]"
-  show (_ :-> _) = "[predicate on nonterminals `A`] :=> [schema of substitution by terminals `a`]"
+  show (a :=* _) = show a <> " :=* [some schema of substitution by nonterminals `BC`]"
+  show (a :-* _) = show a <> " :-* [some schema of substitution by terminals `a`]"
+  show (_ :=> _) = "[some predicate on nonterminals `A`] :=> [some schema of substitution by nonterminals `BC`]"
+  show (_ :-> _) = "[some predicate on nonterminals `A`] :=> [some schema of substitution by terminals `a`]"
 
-domain :: (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal -> (nonterminal -> Bool)
+domain :: (Abstract nonterminal, Concrete terminal, Monad m) => Rule m nonterminal terminal -> (nonterminal -> Bool)
 domain (a :=. _) = (== a)
 domain (a :-. _) = (== a)
+domain (a :=* _) = (== a)
+domain (a :-* _) = (== a)
 domain (p :=> _) = p
 domain (p :-> _) = p
 
-codomain :: (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal -> Either (nonterminal -> (nonterminal, nonterminal)) (nonterminal -> terminal)
-codomain (_ :=. (a, b)) = Left $ const (a, b)
-codomain (_ :-. a) = Right $ const a
+codomain :: (Abstract nonterminal, Concrete terminal, Monad m) => Rule m nonterminal terminal -> Either (nonterminal -> m (nonterminal, nonterminal)) (nonterminal -> m terminal)
+codomain (_ :=. (a, b)) = Left . const . pure $ (a, b)
+codomain (_ :-. a) = Right . const . pure $ a
+codomain (_ :=* z) = Left $ const $ z
+codomain (_ :-* z) = Right $ const $ z
 codomain (_ :=> f) = Left f
 codomain (_ :-> f) = Right f
 
-data Grammar nonterminal terminal = Grammar
-  { grammarRules :: !(NonNullFinList (Rule nonterminal terminal)),
+data Grammar m nonterminal terminal = Grammar
+  { grammarRules :: !(NonNullFinList (Rule m nonterminal terminal)),
     grammarStart :: !nonterminal,
     grammarEmptyString :: !terminal
   }

@@ -16,6 +16,7 @@ tests:
     dependencies:
       - gnoam
       - hspec
+      - random
 
 default-extensions:
   - ConstraintKinds
