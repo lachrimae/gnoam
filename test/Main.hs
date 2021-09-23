@@ -41,7 +41,7 @@ main = hspec $ do
   describe "generate'" $ do
     it "performs a no-op iteration" $ do
       let rule = pure $ (0 :: Int16) :- (0 :: Int8)
-      generate' rule (pure $ Left 0 :|| Empty) 0 `shouldBe` (0 :|| Empty) :| Empty
+      generate' rule (pure $ Left 0 :|| Empty) 1 `shouldBe` (0 :|| Empty) :| Empty
   describe "generate" $ do
     it "creates the empty output" $
       let grammar =
@@ -54,4 +54,4 @@ main = hspec $ do
               , grammarStart = 0
               , grammarEmptyString = 0
               }
-       in (sort . toList) (generate grammar 5) `shouldBe` [(0 :|| Empty), (3 :|| 4 :| Empty)]
+       in (sort . toList) (generate grammar 7) `shouldBe` [(0 :|| Empty), (3 :|| 4 :| Empty)]

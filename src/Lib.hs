@@ -9,7 +9,6 @@ import Data.Either
 import Data.Foldable
 import Data.Functor
 import Data.Maybe
-import Debug.Trace
 
 -- strictness forces this list to be finite
 data FinList a
@@ -116,11 +115,11 @@ generate rawGrammar iterations =
             rawGrammar
               { grammarRules =
                   (grammarStart rawGrammar :- grammarEmptyString rawGrammar)
-                    `prepend` grammarRules grammar
+                    `prepend` grammarRules rawGrammar
               }
    in generate'
-        (grammarRules rawGrammar)
-        (pure $ pure (Left (grammarStart rawGrammar)))
+        (grammarRules grammar)
+        (pure $ pure (Left (grammarStart grammar)))
         iterations
 
 generate'
@@ -138,7 +137,6 @@ generate' rules generations iterations =
   let mappedGenerations = generations <&> \generation ->
         iterInput right (mkZipper generation) rules Empty
       concatGenerations = foldl' (<>) Empty mappedGenerations
-      debug = show rules <> " " <> show generations <> " " <> show iterations
    in generate' rules concatGenerations (iterations - 1)
 
 iterInput
