@@ -7,9 +7,6 @@ import Test.Hspec
 
 -- we need to define this in order to use
 -- integers as a dummy Abstract type
-instance Equiv Int16 where
-  a ~~ b = a == b
-
 main :: IO ()
 main = hspec $ do
   describe "Zipper" $ do
