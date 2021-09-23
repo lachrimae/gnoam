@@ -75,11 +75,11 @@ type Abstract a = (Eq a, Ord a, Show a)
 
 {- ORMOLU_DISABLE -}
 data (Abstract nonterminal, Concrete terminal, Monad production) => Rule production nonterminal terminal
-  = !nonterminal :=. !(nonterminal, nonterminal)
+  = !nonterminal :=. !(NonNullFinList nonterminal)
   | !nonterminal :-. !(terminal)
-  | !nonterminal :=* !(production (nonterminal, nonterminal))
+  | !nonterminal :=* !(production (NonNullFinList nonterminal))
   | !nonterminal :-* !(production terminal)
-  | !(nonterminal -> Bool) :=> !(nonterminal -> production (nonterminal, nonterminal))
+  | !(nonterminal -> Bool) :=> !(nonterminal -> production (NonNullFinList nonterminal))
   | !(nonterminal -> Bool) :-> !(nonterminal -> production terminal)
 {- ORMOLU_ENABLE -}
 
@@ -99,8 +99,8 @@ domain (a :-* _) = (== a)
 domain (p :=> _) = p
 domain (p :-> _) = p
 
-codomain :: (Abstract nonterminal, Concrete terminal, Monad m) => Rule m nonterminal terminal -> Either (nonterminal -> m (nonterminal, nonterminal)) (nonterminal -> m terminal)
-codomain (_ :=. (a, b)) = Left . const . pure $ (a, b)
+codomain :: (Abstract nonterminal, Concrete terminal, Monad production) => Rule production nonterminal terminal -> Either (nonterminal -> production (NonNullFinList nonterminal)) (nonterminal -> production terminal)
+codomain (_ :=. as) = Left . const . pure $ as
 codomain (_ :-. a) = Right . const . pure $ a
 codomain (_ :=* z) = Left $ const $ z
 codomain (_ :-* z) = Right $ const $ z

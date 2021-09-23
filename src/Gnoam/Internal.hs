@@ -96,17 +96,16 @@ prependRuleMatches ::
   Either nonterminal terminal ->
   FinList (NonNullFinList ((Either nonterminal terminal))) ->
   production (FinList (NonNullFinList (Either nonterminal terminal)))
-prependRuleMatches rule symbol matches =
+prependRuleMatches rule symbol substitutions =
   case symbol of
     Left nonterminal ->
       if (domain rule) nonterminal
         then case codomain rule of
           Left f -> do
-            (nonterminal1, nonterminal2) <- f nonterminal
-            pure $
-              ((Left nonterminal1 :|| Left nonterminal2 :| Empty)) :| matches
+            newSubstitution <- f nonterminal
+            pure $ fmap Left newSubstitution :| substitutions
           Right f -> do
             terminal <- f nonterminal
-            pure $ pure (Right terminal) :| matches
-        else pure matches
-    Right _ -> pure matches
+            pure $ pure (Right terminal) :| substitutions
+        else pure substitutions
+    Right _ -> pure substitutions

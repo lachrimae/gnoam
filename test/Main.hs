@@ -46,14 +46,14 @@ main = hspec $ do
       res <- generate' rule (pure $ pure $ Left (0 :: Int16)) 1
       res `shouldBe` (pure $ pure 1)
     it "drops strings with lefts" $ do
-      let rule1 = (0 :: Int16) :=. ((1 :: Int16), 2)
+      let rule1 = (0 :: Int16) :=. ((1 :: Int16) :|| 2 :| Empty)
           rule2 = (1 :-. (3 :: Int8))
           rule3 = (2 :-. 4)
           rules = rule1 :|| rule2 :| rule3 :| Empty
       res <- generate' rules (pure $ pure $ Left (0 :: Int16)) 1
       res `shouldBe` Empty
-    it "performs a two-op iteration" $ do
-      let rule1 = (0 :: Int16) :=. ((1 :: Int16), 2)
+    it "performs a simple single iteration" $ do
+      let rule1 = (0 :: Int16) :=. ((1 :: Int16) :|| 2 :| Empty)
           rule2 = (1 :-. (3 :: Int8))
           rule3 = (2 :-. 4)
           rules = rule1 :|| rule2 :| rule3 :| Empty
