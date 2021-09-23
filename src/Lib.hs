@@ -8,7 +8,6 @@ module Lib where
 import Data.Either
 import Data.Foldable
 import Data.Functor
-import Data.Maybe
 
 -- strictness forces this list to be finite
 data FinList a
@@ -73,22 +72,45 @@ fromZipper zipper =
     Nothing -> subsequent zipper
     Just z -> fromZipper z
 
+-- An equivalence class on `a`. The user must ensure
+-- that `a == b` implies that `a ~~ b`.
+class Equiv a where
+  (~~) :: a -> a -> Bool
+
 -- we need terminal symbols of our language to be Concrete
 type Concrete a = (Eq a, Ord a, Bounded a, Enum a, Show a)
-type Abstract a = (Eq a, Ord a, Show a)
+type Abstract a = (Eq a, Equiv a, Ord a, Show a)
 
 data (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal
-  = !nonterminal := !(nonterminal, nonterminal)
-  | !nonterminal :- !terminal
-  deriving (Show, Eq, Ord)
+  = -- production of a pair of nonterminals
+    !nonterminal :=. !(nonterminal, nonterminal)
+  | -- production of a terminal
+    !nonterminal :-. !terminal
+  | -- production schema of a pair of nonterminals
+    -- this production rule specifies an arbitrary
+    -- number of rules sharing its form
+    !nonterminal :=> !(nonterminal -> (nonterminal, nonterminal))
+  | -- production schema of a terminal
+    -- ditto
+    !nonterminal :-> !(nonterminal -> terminal)
+
+instance (Abstract nonterminal, Concrete terminal) => Show (Rule nonterminal terminal) where
+  show (a :=. b) = show a <> " :=. " <> show b
+  show (a :-. b) = show a <> " :-. " <> show b
+  show (a :=> _) = show a <> " :=> [schema of substitution to nonterminals `BC`]"
+  show (a :-> _) = show a <> " :=> [schema of substitution to terminals `a`]"
 
 domain :: (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal -> nonterminal
-domain (a := _) = a
-domain (a :- _) = a
+domain (a :=. _) = a
+domain (a :-. _) = a
+domain (a :=> _) = a
+domain (a :-> _) = a
 
-codomain :: (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal -> Either (nonterminal, nonterminal) terminal
-codomain (_ := (a, b)) = Left (a, b)
-codomain (_ :- a) = Right a
+codomain :: (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal -> Either (nonterminal -> (nonterminal, nonterminal)) (nonterminal -> terminal)
+codomain (_ :=. (a, b)) = Left $ const (a, b)
+codomain (_ :-. a) = Right $ const a
+codomain (_ :=> f) = Left f
+codomain (_ :-> f) = Right f
 
 data Grammar nonterminal terminal
   = Grammar
@@ -96,7 +118,7 @@ data Grammar nonterminal terminal
       , grammarStart :: !nonterminal
       , grammarEmptyString :: !terminal
       }
-  deriving (Show, Eq)
+  deriving (Show)
 
 generate
   :: (Concrete terminal, Abstract nonterminal)
@@ -106,17 +128,15 @@ generate
 generate rawGrammar iterations =
   -- we add the empty string to the language output if it is not already a rule
   -- as per the definition of a context-free language
+  -- in the worst case scenario, this adds an duplicated (start -> emptyString)
+  -- rule to the program, which is not a big deal once I
+  -- switch this to using sets
   let grammar =
-        if isJust $
-             find (== (grammarStart rawGrammar :- grammarEmptyString rawGrammar))
-             (grammarRules rawGrammar)
-          then rawGrammar
-          else
-            rawGrammar
-              { grammarRules =
-                  (grammarStart rawGrammar :- grammarEmptyString rawGrammar)
-                    `prepend` grammarRules rawGrammar
-              }
+        rawGrammar
+          { grammarRules =
+            (grammarStart rawGrammar :-. grammarEmptyString rawGrammar)
+              `prepend` grammarRules rawGrammar
+          }
    in generate'
         (grammarRules grammar)
         (pure $ pure (Left (grammarStart grammar)))
@@ -191,9 +211,11 @@ prependRuleMatches rule symbol matches
       Left nonterminal ->
         if domain rule == nonterminal
           then case codomain rule of
-            Left (nonterminal1, nonterminal2) ->
-              ((Left nonterminal1 :|| Left nonterminal2 :| Empty)) :| matches
-            Right terminal ->
-              pure (Right terminal) :| matches
+            Left f ->
+              let (nonterminal1, nonterminal2) = f nonterminal
+               in ((Left nonterminal1 :|| Left nonterminal2 :| Empty)) :| matches
+            Right f ->
+              let terminal = f nonterminal
+               in pure (Right terminal) :| matches
           else matches
       Right _ -> matches

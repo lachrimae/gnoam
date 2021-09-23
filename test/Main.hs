@@ -1,10 +1,13 @@
 module Main where
 
-import Data.Foldable
 import Data.Int
-import Data.List
 import Test.Hspec
 import Lib
+
+-- we need to define this in order to use
+-- integers as a dummy Abstract type
+instance Equiv Int16 where
+  a ~~ b = a == b
 
 main :: IO ()
 main = hspec $ do
@@ -20,38 +23,46 @@ main = hspec $ do
   describe "iterInput" $ do
     it "performs a very simple iteration" $ do
       let zipInput = Zipper Empty (Left (0 :: Int16) :|| Empty)
-          rules = ((0 :: Int16) :- (0 :: Int8)) :|| Empty
+          rules = ((0 :: Int16) :-. (0 :: Int8)) :|| Empty
           iterRes = iterInput right zipInput rules Empty
       iterRes `shouldBe` (Right 0 :|| Empty) :| Empty
   describe "iterRules" $ do
     it "performs a very simple iteration" $ do
       let zipInput = Zipper Empty (Left (0 :: Int16) :|| Empty)
-          zipRules = Zipper Empty (((0 :: Int16) :- (0 :: Int8)) :|| Empty)
+          zipRules = Zipper Empty (((0 :: Int16) :-. (0 :: Int8)) :|| Empty)
           iterRes = iterRules right zipInput zipRules Empty
       iterRes `shouldBe` (Right 0 :|| Empty) :| Empty
   describe "prependRuleMatches" $ do
     it "accepts matches" $ do
-      let rule = (0 :: Int16) :- (0 :: Int8)
+      let rule = (0 :: Int16) :-. (0 :: Int8)
           prependation = prependRuleMatches rule (Left 0) Empty
       prependation `shouldBe` (Right 0 :|| Empty) :| Empty
     it "rejects nonmatches" $ do
-      let rule = (0 :: Int16) :- (0 :: Int8)
+      let rule = (0 :: Int16) :-. (0 :: Int8)
           prependation = prependRuleMatches rule (Left 1) Empty
       prependation `shouldBe` Empty
   describe "generate'" $ do
-    it "performs a no-op iteration" $ do
-      let rule = pure $ (0 :: Int16) :- (0 :: Int8)
-      generate' rule (pure $ Left 0 :|| Empty) 1 `shouldBe` (0 :|| Empty) :| Empty
-  describe "generate" $ do
-    it "creates the empty output" $
-      let grammar =
+    it "performs a one-op iteration" $ do
+      let rule = pure $ (0 :: Int16) :-. (1 :: Int8)
+      generate' rule (pure $ pure $ Left (0 :: Int16)) 1 `shouldBe` (pure $ pure 1)
+    it "drops strings with lefts" $ do
+      let rule1 = (0 :: Int16) :=. ((1 :: Int16), 2)
+          rule2 = (1 :-. (3 :: Int8))
+          rule3 = (2 :-. 4)
+          rules = rule1 :|| rule2 :| rule3 :| Empty
+      generate' rules (pure $ pure $ Left (0 :: Int16)) 1 `shouldBe` Empty
+    it "performs a two-op iteration" $ do
+      let rule1 = (0 :: Int16) :=. ((1 :: Int16), 2)
+          rule2 = (1 :-. (3 :: Int8))
+          rule3 = (2 :-. 4)
+          rules = rule1 :|| rule2 :| rule3 :| Empty
+          -- TODO: fix the duplication issue by using sets instead of lists
+          expected = (3 :|| 4 :| Empty) :| (3 :|| 4 :| Empty) :| Empty
+          grammar =
             Grammar
-              { grammarRules =
-                  ((0 :: Int16) := (1 :: Int16, 2 :: Int16)) :||
-                    (1 :- (3 :: Int8)) :|
-                    (2 :- 4) :|
-                    Empty
+              { grammarRules = rules
               , grammarStart = 0
               , grammarEmptyString = 0
               }
-       in (sort . toList) (generate grammar 7) `shouldBe` [(0 :|| Empty), (3 :|| 4 :| Empty)]
+      generate' rules (pure $ pure $ Left (0 :: Int16)) 3 `shouldBe` expected
+      generate grammar 3 `shouldBe` expected
