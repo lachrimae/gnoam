@@ -1,7 +1,7 @@
 module Main where
 
 import Data.Int
-import Lib
+import Gnoam
 import Test.Hspec
 
 -- we need to define this in order to use

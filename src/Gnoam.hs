@@ -3,7 +3,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Lib where
+module Gnoam where
 
 import Data.Either
 import Data.Foldable

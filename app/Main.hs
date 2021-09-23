@@ -1,7 +1,7 @@
 module Main where
 
 import Data.Int
-import Lib
+import Gnoam
 
 main :: IO ()
 main = do
