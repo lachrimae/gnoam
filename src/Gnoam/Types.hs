@@ -5,10 +5,6 @@
 
 module Gnoam.Types where
 
-import Data.Either
-import Data.Foldable
-import Data.Functor
-
 -- strictness forces this list to be finite
 data FinList a
   = a :| !(FinList a)
@@ -80,7 +76,7 @@ fromZipper zipper =
 -- we need terminal symbols of our language to be Concrete
 type Concrete a = (Eq a, Ord a, Bounded a, Enum a, Show a)
 
-type Abstract a = (Eq a, Equiv a, Ord a, Show a)
+type Abstract a = (Eq a, Ord a, Show a)
 
 {- ORMOLU_DISABLE -}
 data (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal
@@ -91,23 +87,23 @@ data (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal
   | -- production schema of a pair of nonterminals
     -- this production rule specifies an arbitrary
     -- number of rules sharing its form
-    !nonterminal :=> !(nonterminal -> (nonterminal, nonterminal))
+    !(nonterminal -> Bool) :=> !(nonterminal -> (nonterminal, nonterminal))
   | -- production schema of a terminal
     -- ditto
-    !nonterminal :-> !(nonterminal -> terminal)
+    !(nonterminal -> Bool) :-> !(nonterminal -> terminal)
 {- ORMOLU_ENABLE -}
 
 instance (Abstract nonterminal, Concrete terminal) => Show (Rule nonterminal terminal) where
   show (a :=. b) = show a <> " :=. " <> show b
   show (a :-. b) = show a <> " :-. " <> show b
-  show (a :=> _) = show a <> " :=> [schema of substitution to nonterminals `BC`]"
-  show (a :-> _) = show a <> " :=> [schema of substitution to terminals `a`]"
+  show (_ :=> _) = "[predicate on nonterminals `A`] :=> [schema of substitution by nonterminals `BC`]"
+  show (_ :-> _) = "[predicate on nonterminals `A`] :=> [schema of substitution by terminals `a`]"
 
-domain :: (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal -> nonterminal
-domain (a :=. _) = a
-domain (a :-. _) = a
-domain (a :=> _) = a
-domain (a :-> _) = a
+domain :: (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal -> (nonterminal -> Bool)
+domain (a :=. _) = (== a)
+domain (a :-. _) = (== a)
+domain (p :=> _) = p
+domain (p :-> _) = p
 
 codomain :: (Abstract nonterminal, Concrete terminal) => Rule nonterminal terminal -> Either (nonterminal -> (nonterminal, nonterminal)) (nonterminal -> terminal)
 codomain (_ :=. (a, b)) = Left $ const (a, b)

@@ -8,6 +8,7 @@ module Gnoam.Internal where
 import Data.Either
 import Data.Foldable
 import Data.Functor
+import Gnoam.Types
 
 generate ::
   (Concrete terminal, Abstract nonterminal) =>
@@ -99,7 +100,7 @@ prependRuleMatches ::
 prependRuleMatches rule symbol matches =
   case symbol of
     Left nonterminal ->
-      if domain rule == nonterminal
+      if (domain rule) nonterminal
         then case codomain rule of
           Left f ->
             let (nonterminal1, nonterminal2) = f nonterminal
