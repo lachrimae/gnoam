@@ -68,9 +68,7 @@ fromZipper zipper =
     Nothing -> subsequent zipper
     Just z -> fromZipper z
 
--- we need terminal symbols of our language to be Concrete
-type Concrete a = (Eq a, Ord a, Bounded a, Enum a, Show a)
-
+type Concrete a = (Eq a, Ord a, Show a)
 type Abstract a = (Eq a, Ord a, Show a)
 
 {- ORMOLU_DISABLE -}
