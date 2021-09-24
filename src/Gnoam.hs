@@ -3,6 +3,7 @@ module Gnoam
     Grammar (..),
     Rule (..),
     NonNullFinList (..),
+    FinList (..),
   ) where
 
 import Gnoam.Internal
