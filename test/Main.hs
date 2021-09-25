@@ -33,12 +33,12 @@ main = hspec $ do
   describe "prependRuleMatches" $ do
     it "accepts matches" $ do
       let rule = (0 :: Int16) :-. (0 :: Int8)
-      prependation <- prependRuleMatches rule 0 Empty
-      prependation `shouldBe` (Right 0 :|| Empty) :| Empty
+      prependation <- prependRuleMatches rule 0
+      prependation `shouldBe` Just (Right 0 :|| Empty)
     it "rejects nonmatches" $ do
       let rule = (0 :: Int16) :-. (0 :: Int8)
-      prependation <- prependRuleMatches rule 1 Empty
-      prependation `shouldBe` Empty
+      prependation <- prependRuleMatches rule 1
+      prependation `shouldBe` Nothing
   describe "generate'" $ do
     it "performs a one-op iteration" $ do
       let rule = pure $ (0 :: Int16) :-. (1 :: Int8)

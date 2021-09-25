@@ -87,23 +87,24 @@ iterateOverRules ::
   production (FinList (NonNullFinList (Either nonterminal terminal)))
 iterateOverRules _ Empty substitutions = pure substitutions
 iterateOverRules symbol (rule :| rules) substitutions = do
-  additionsToSubstitutions <- prependRuleMatches rule symbol substitutions
-  let agglomeratedSubstitutions = substitutions <> additionsToSubstitutions
+  additionalSubstitution <- prependRuleMatches rule symbol
+  let agglomeratedSubstitutions = case additionalSubstitution of
+        Nothing -> substitutions
+        Just newSubstitution -> newSubstitution :| substitutions
   iterateOverRules symbol rules agglomeratedSubstitutions
 
 prependRuleMatches ::
   (Abstract nonterminal, Concrete terminal, Monad production) =>
   Rule production nonterminal terminal ->
   nonterminal ->
-  FinList (NonNullFinList ((Either nonterminal terminal))) ->
-  production (FinList (NonNullFinList (Either nonterminal terminal)))
-prependRuleMatches rule symbol substitutions =
+  production (Maybe (NonNullFinList (Either nonterminal terminal)))
+prependRuleMatches rule symbol =
   if (domain rule) symbol
     then case codomain rule of
       Left f -> do
         newSubstitution <- f symbol
-        pure $ fmap Left newSubstitution :| substitutions
+        pure $ Just $ fmap Left newSubstitution
       Right f -> do
         terminal <- f symbol
-        pure $ pure (Right terminal) :| substitutions
-    else pure substitutions
+        pure $ Just $ (Right terminal :|| Empty)
+    else pure Nothing
