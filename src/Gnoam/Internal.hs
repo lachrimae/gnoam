@@ -19,93 +19,91 @@ generate rawGrammar iterations =
         rawGrammar
           { grammarRules =
               (grammarStart rawGrammar :-. grammarEmptyString rawGrammar)
-                `prepend` grammarRules rawGrammar
+                :| grammarRules rawGrammar
           }
    in generate'
         (grammarRules grammar)
         (pure $ pure (Left (grammarStart grammar)))
+        Empty
         iterations
 
 generate' ::
   (Concrete terminal, Abstract nonterminal, Monad production) =>
-  NonNullFinList (Rule production nonterminal terminal) ->
+  FinList (Rule production nonterminal terminal) ->
   FinList (NonNullFinList (Either nonterminal terminal)) ->
+  FinList (NonNullFinList terminal) ->
   Int ->
   production (FinList (NonNullFinList terminal))
-generate' _ Empty 0 = pure Empty
-generate' rules (generation :| generations) 0 =
-  if all isRight generation
-    then do
-      let head' = fmap (\(Right x) -> x) generation
-      tail' <- generate' rules generations 0
-      pure $ head' :| tail'
-    else generate' rules generations 0
-generate' rules generations iterations = do
-  let generationComputation =
-        generations <&> \generation ->
-          iterInput (mkZipper generation) rules Empty
-  additionalGenerations <- foldl (<>) Empty <$> sequence generationComputation
-  let subsequentGenerations = generations <> additionalGenerations
-  generate' rules subsequentGenerations (iterations - 1)
+generate' _ _ fullyTerminalSeqs 0 = pure fullyTerminalSeqs
+generate' rules seqsWithNonterminals fullyTerminalSeqs iterationsLeft = do
+  let newSeqs =
+        seqsWithNonterminals <&> \seqWithNonterminals ->
+          iterateOverSequence (mkZipper seqWithNonterminals) rules Empty Empty
+  (newSeqsWithNonterminals, newFullyTerminalSeqs) <-
+    foldl accumResults (Empty, Empty) <$> sequence newSeqs
+  generate' rules newSeqsWithNonterminals (fullyTerminalSeqs <> newFullyTerminalSeqs) (iterationsLeft - 1)
+  where
+    accumResults (oldGenerations, oldTerminals) (newGenerations, newTerminals) =
+      (oldGenerations <> newGenerations, oldTerminals <> newTerminals)
 
-iterInput ::
+iterateOverSequence ::
   (Concrete terminal, Abstract nonterminal, Monad production) =>
   Zipper (Either nonterminal terminal) ->
-  NonNullFinList (Rule production nonterminal terminal) ->
+  FinList (Rule production nonterminal terminal) ->
   FinList (NonNullFinList (Either nonterminal terminal)) ->
-  production (FinList (NonNullFinList (Either nonterminal terminal)))
-iterInput zipInput rules generation = do
-  substitutions <- iterRules zipInput (mkZipper rules) Empty
-  let Zipper prev (_current :|| next) = zipInput
-      additionsToGeneration =
+  FinList (NonNullFinList terminal) ->
+  production (FinList (NonNullFinList (Either nonterminal terminal)), FinList (NonNullFinList terminal))
+iterateOverSequence zipper@(Zipper _ (Right _ :|| _)) rules newSequences newFullyTerminalSequences =
+  case right zipper of
+    Nothing -> pure (newSequences, newFullyTerminalSequences)
+    Just nextZip -> iterateOverSequence nextZip rules newSequences newFullyTerminalSequences
+iterateOverSequence zipper@(Zipper prev (Left current :|| next)) rules newSequences newFullyTerminalSequences = do
+  substitutions <- iterateOverRules current rules Empty
+  let allNewSeqs =
         substitutions
           <&> \substitution -> fromZipper $ Zipper prev $ substitution `grow` next
-  let nextGeneration = generation <> additionsToGeneration
-  case right zipInput of
-    Nothing ->
-      pure nextGeneration
-    Just subsequentZipInput ->
-      iterInput
-        subsequentZipInput
-        rules
-        nextGeneration
+      (newSequences', newFullyTerminalSequences') = separateFullyTerminalSequences allNewSeqs (Empty, Empty)
+      agglomeratedSequences = newSequences <> newSequences'
+      agglomeratedFullyTerminalSequences = newFullyTerminalSequences <> newFullyTerminalSequences'
+  case right zipper of
+    Nothing -> pure (agglomeratedSequences, agglomeratedFullyTerminalSequences)
+    Just nextZipper -> iterateOverSequence nextZipper rules agglomeratedSequences agglomeratedFullyTerminalSequences
+  where
+    separateFullyTerminalSequences Empty pair = pair
+    separateFullyTerminalSequences (sequence' :| sequences) (nonFullyTerminal, fullyTerminal) =
+      case identifySequence sequence' of
+        Right aFullyTerminalSeq -> separateFullyTerminalSequences sequences (nonFullyTerminal, aFullyTerminalSeq :| fullyTerminal)
+        Left aNonFullyTerminalSeq -> separateFullyTerminalSequences sequences (aNonFullyTerminalSeq :| nonFullyTerminal, fullyTerminal)
+    identifySequence sequence' =
+      if all isRight sequence'
+        then Right $ fmap (\(Right x) -> x) sequence'
+        else Left sequence'
 
-iterRules ::
+iterateOverRules ::
   (Concrete terminal, Abstract nonterminal, Monad production) =>
-  Zipper (Either nonterminal terminal) ->
-  -- TODO
-  -- we don't actually use the Zipper features of this var,
-  -- it can be made a regular list
-  Zipper (Rule production nonterminal terminal) ->
+  nonterminal ->
+  FinList (Rule production nonterminal terminal) ->
   FinList (NonNullFinList (Either nonterminal terminal)) ->
   production (FinList (NonNullFinList (Either nonterminal terminal)))
-iterRules zipInput zipRules substitutions = do
-  let Zipper _ (rule :|| _) = zipRules
-      Zipper _ (symbol :|| _) = zipInput
+iterateOverRules _ Empty substitutions = pure substitutions
+iterateOverRules symbol (rule :| rules) substitutions = do
   additionsToSubstitutions <- prependRuleMatches rule symbol substitutions
-  let subsequentSubstitutions = substitutions <> additionsToSubstitutions
-  case right zipRules of
-    Nothing ->
-      pure subsequentSubstitutions
-    Just subsequentZipRules ->
-      iterRules zipInput subsequentZipRules subsequentSubstitutions
+  let agglomeratedSubstitutions = substitutions <> additionsToSubstitutions
+  iterateOverRules symbol rules agglomeratedSubstitutions
 
 prependRuleMatches ::
   (Abstract nonterminal, Concrete terminal, Monad production) =>
   Rule production nonterminal terminal ->
-  Either nonterminal terminal ->
+  nonterminal ->
   FinList (NonNullFinList ((Either nonterminal terminal))) ->
   production (FinList (NonNullFinList (Either nonterminal terminal)))
 prependRuleMatches rule symbol substitutions =
-  case symbol of
-    Left nonterminal ->
-      if (domain rule) nonterminal
-        then case codomain rule of
-          Left f -> do
-            newSubstitution <- f nonterminal
-            pure $ fmap Left newSubstitution :| substitutions
-          Right f -> do
-            terminal <- f nonterminal
-            pure $ pure (Right terminal) :| substitutions
-        else pure substitutions
-    Right _ -> pure substitutions
+  if (domain rule) symbol
+    then case codomain rule of
+      Left f -> do
+        newSubstitution <- f symbol
+        pure $ fmap Left newSubstitution :| substitutions
+      Right f -> do
+        terminal <- f symbol
+        pure $ pure (Right terminal) :| substitutions
+    else pure substitutions

@@ -106,7 +106,7 @@ codomain (_ :=> f) = Left f
 codomain (_ :-> f) = Right f
 
 data Grammar m nonterminal terminal = Grammar
-  { grammarRules :: !(NonNullFinList (Rule m nonterminal terminal)),
+  { grammarRules :: !(FinList (Rule m nonterminal terminal)),
     grammarStart :: !nonterminal,
     grammarEmptyString :: !terminal
   }
