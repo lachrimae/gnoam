@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module Gnoam.Types where
 
 -- strictness forces this list to be finite
@@ -43,7 +45,7 @@ grow (x :|| xs) ys = x :|| (xs <> ys)
 
 infixr 7 :|
 
-infixr 7 :||
+infixr 6 :||
 
 data Zipper a = Zipper
   { previous :: !(FinList a),
@@ -54,13 +56,13 @@ data Zipper a = Zipper
 mkZipper :: NonNullFinList a -> Zipper a
 mkZipper l = Zipper Empty l
 
-left :: Zipper a -> Maybe (Zipper a)
-left (Zipper Empty _) = Nothing
-left (Zipper (a :| as) bs) = Just $ Zipper as (prepend a bs)
-
 right :: Zipper a -> Maybe (Zipper a)
 right (Zipper _ (_ :|| Empty)) = Nothing
 right (Zipper as (b :|| b' :| bs)) = Just $ Zipper (b :| as) (b' :|| bs)
+
+left :: Zipper a -> Maybe (Zipper a)
+left (Zipper Empty _) = Nothing
+left (Zipper (a :| as) (b :|| bs)) = Just $ Zipper as (a :|| b :| bs)
 
 fromZipper :: Zipper a -> NonNullFinList a
 fromZipper zipper =
@@ -69,45 +71,19 @@ fromZipper zipper =
     Just z -> fromZipper z
 
 type Concrete a = (Eq a, Ord a, Show a)
+
 type Abstract a = (Eq a, Ord a, Show a)
 
-{- ORMOLU_DISABLE -}
-data (Abstract nonterminal, Concrete terminal, Monad production) => Rule production nonterminal terminal
-  = !nonterminal :=. !(NonNullFinList nonterminal)
-  | !nonterminal :-. !(terminal)
-  | !nonterminal :=* !(production (NonNullFinList nonterminal))
-  | !nonterminal :-* !(production terminal)
-  | !(nonterminal -> Bool) :=> !(nonterminal -> production (NonNullFinList nonterminal))
-  | !(nonterminal -> Bool) :-> !(nonterminal -> production terminal)
-{- ORMOLU_ENABLE -}
+data Symbol nonterminal terminal
+  = NonTerminal nonterminal
+  | Terminal terminal
 
-instance (Abstract nonterminal, Concrete terminal, Monad m) => Show (Rule m nonterminal terminal) where
-  show (a :=. b) = show a <> " :=. " <> show b
-  show (a :-. b) = show a <> " :-. " <> show b
-  show (a :=* _) = show a <> " :=* [some schema of substitution by nonterminals `BC`]"
-  show (a :-* _) = show a <> " :-* [some schema of substitution by terminals `a`]"
-  show (_ :=> _) = "[some predicate on nonterminals `A`] :=> [some schema of substitution by nonterminals `BC`]"
-  show (_ :-> _) = "[some predicate on nonterminals `A`] :=> [some schema of substitution by terminals `a`]"
+isTerminal :: Symbol nonterminal terminal -> Bool
+isTerminal (Terminal _) = True
+isTerminal (NonTerminal _) = False
 
-domain :: (Abstract nonterminal, Concrete terminal, Monad m) => Rule m nonterminal terminal -> (nonterminal -> Bool)
-domain (a :=. _) = (== a)
-domain (a :-. _) = (== a)
-domain (a :=* _) = (== a)
-domain (a :-* _) = (== a)
-domain (p :=> _) = p
-domain (p :-> _) = p
-
-codomain :: (Abstract nonterminal, Concrete terminal, Monad production) => Rule production nonterminal terminal -> Either (nonterminal -> production (NonNullFinList nonterminal)) (nonterminal -> production terminal)
-codomain (_ :=. as) = Left . const . pure $ as
-codomain (_ :-. a) = Right . const . pure $ a
-codomain (_ :=* z) = Left $ const $ z
-codomain (_ :-* z) = Right $ const $ z
-codomain (_ :=> f) = Left f
-codomain (_ :-> f) = Right f
-
-data Grammar m nonterminal terminal = Grammar
-  { grammarRules :: !(FinList (Rule m nonterminal terminal)),
-    grammarStart :: !nonterminal,
-    grammarEmptyString :: !terminal
-  }
-  deriving (Show)
+class (Concrete terminal, Abstract nonterminal, Monad production) => GrammarRule production nonterminal terminal rule where
+  getRuleMatch ::
+    rule ->
+    nonterminal ->
+    Maybe (production (NonNullFinList (Symbol nonterminal terminal)))
